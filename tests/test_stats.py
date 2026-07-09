@@ -65,6 +65,14 @@ def test_dozen_mode_biased_first_dozen():
     assert r.top is not None and r.top.category == "d1"
 
 
+def test_predict_local_always_names_candidate():
+    # даже на случайных малых данных должен назвать конкретное число
+    r = stats.analyze([17, 5, 23, 0], Difficulty.NUMBERS)
+    assert "число" in stats.predict_local(r)
+    # и при пустой выборке кандидат всё равно назван
+    assert "кандидат" in stats.predict_local(stats.analyze([], Difficulty.NUMBERS))
+
+
 def test_category_labels():
     assert stats.category_label("red", Difficulty.EASY) == "красное"
     assert "1–12" in stats.category_label("d1", Difficulty.MEDIUM)

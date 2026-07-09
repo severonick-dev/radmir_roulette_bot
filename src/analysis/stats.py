@@ -182,23 +182,34 @@ def _verdict(difficulty, n, small, biased, p, top) -> str:
     )
 
 
-def predict_local(result: "AnalysisResult") -> str:
-    """Короткий прогноз без ИИ (фолбэк, если ИИ выключен/недоступен)."""
-    diff = result.difficulty
-    if result.n == 0:
-        return "данных нет — первый спин это чистая случайность."
+def _best_pick(result: "AnalysisResult") -> "CatStat | None":
+    """Кандидат для прогноза: перекос → Марков → самый частый."""
+    if not result.cats:
+        return None
     if result.biased and result.top is not None:
-        return (
-            f"вероятнее «{category_label(result.top.category, diff)}» — "
-            f"в данных есть перекос (p={result.p_value:.3f})."
-        )
+        return result.top
     if result.markov_pick is not None:
-        cat, prob, total = result.markov_pick
-        return (
-            f"слабый сигнал: после «{category_label(result.markov_last, diff)}» чаще "
-            f"«{category_label(cat, diff)}» ({prob * 100:.0f}%, {total} набл.) — не гарантия."
-        )
-    return "значимого перекоса нет — следующий исход по сути случайный."
+        cat = result.markov_pick[0]
+        for c in result.cats:
+            if c.category == cat:
+                return c
+    return max(result.cats, key=lambda c: (c.count, c.lift))
+
+
+def predict_local(result: "AnalysisResult") -> str:
+    """Короткий прогноз без ИИ (фолбэк). ВСЕГДА называет кандидата."""
+    diff = result.difficulty
+    pick = _best_pick(result)
+    label = category_label(pick.category, diff) if pick else "—"
+    if result.n == 0:
+        return f"кандидат «{label}», но данных нет — это чистая случайность."
+    if result.biased:
+        return f"ставлю на «{label}» — в данных есть перекос (p={result.p_value:.3f})."
+    conf = "низкая" if result.small_sample else "средняя"
+    return (
+        f"кандидат «{label}» (уверенность {conf}: значимого перекоса нет, "
+        f"на таких данных исход близок к случайному)."
+    )
 
 
 def analyze(numbers: list[int], difficulty: Difficulty | str) -> AnalysisResult:
