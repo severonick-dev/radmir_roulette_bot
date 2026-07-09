@@ -34,8 +34,12 @@ def load_settings() -> Settings:
     token = os.getenv("BOT_TOKEN", "").strip()
     if not token:
         raise RuntimeError("BOT_TOKEN не задан — заполни .env (см. .env.example)")
+    # только числовые id; кривые/пустые значения молча пропускаем, чтобы
+    # опечатка в ADMIN_IDS не роняла весь бот при старте
     admin_ids = frozenset(
-        int(x) for x in os.getenv("ADMIN_IDS", "").replace(" ", "").split(",") if x
+        int(x)
+        for x in os.getenv("ADMIN_IDS", "").replace(" ", "").split(",")
+        if x.isdigit()
     )
     return Settings(
         bot_token=token,
