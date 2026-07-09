@@ -1,0 +1,18 @@
+[Unit]
+Description=SOCKS5 tunnel to EU (для доступа к Telegram Bot API)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# ВПИШИ свой EU-сервер: EU_USER (пользователь), EU_HOST (IP/домен), EU_PORT (SSH-порт).
+# Поднимает локальный SOCKS5 на 127.0.0.1:1080, трафик выходит через EU.
+ExecStart=/usr/bin/ssh -N -D 127.0.0.1:1080 \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=accept-new \
+  -i /root/.ssh/eu_tunnel -p EU_PORT EU_USER@EU_HOST
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
