@@ -27,6 +27,7 @@ class Settings:
     ai_temperature: float
     # Прод
     public_url: str
+    force_ipv4: bool  # форсить IPv4 к Telegram (на VDS часто сломан IPv6)
     log_level: str
 
 
@@ -52,5 +53,6 @@ def load_settings() -> Settings:
         ai_max_tokens=int(os.getenv("AI_MAX_TOKENS", "2000")),
         ai_temperature=float(os.getenv("AI_TEMPERATURE", "0.3")),
         public_url=os.getenv("PUBLIC_URL", "https://proxels-web.ru").strip(),
+        force_ipv4=os.getenv("FORCE_IPV4", "1").strip().lower() in ("1", "true", "yes", "on"),
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
     )

@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
@@ -35,8 +37,16 @@ async def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
+    session = AiohttpSession()
+    if settings.force_ipv4:
+        # у многих VDS сломан IPv6 → запросы к Telegram виснут по таймауту.
+        # заставляем aiohttp резолвить только IPv4.
+        session._connector_init["family"] = socket.AF_INET
+        logging.info("Force IPv4 для запросов к Telegram включён.")
+
     bot = Bot(
         settings.bot_token,
+        session=session,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher(storage=MemoryStorage())
