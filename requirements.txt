@@ -1,13 +1,8 @@
+# Рантайм-зависимости (то, что реально импортируется)
 aiogram>=3.13,<4
 SQLAlchemy>=2.0
 aiosqlite>=0.20
-asyncpg>=0.29
-alembic>=1.13
-scipy>=1.13
-numpy>=1.26
-pandas>=2.2
+asyncpg>=0.29        # для Postgres на проде (переключается через DATABASE_URL)
 Pillow>=10.4
 openai>=1.40
 python-dotenv>=1.0
-pytest>=8.0
-pytest-asyncio>=0.23

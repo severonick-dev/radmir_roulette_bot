@@ -1,0 +1,15 @@
+[Unit]
+Description=Casino Radmir AI — Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/radmir-bot
+ExecStart=/opt/radmir-bot/.venv/bin/python -m src.bot.main
+Restart=always
+RestartSec=5
+# .env читается самим приложением (python-dotenv) из WorkingDirectory
+
+[Install]
+WantedBy=multi-user.target

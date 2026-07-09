@@ -120,11 +120,14 @@ tests/
 
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env      # вписать BOT_TOKEN и свой ADMIN_IDS
-pytest                    # прогнать проверки (37 тестов)
+pip install -r requirements.txt        # для запуска бота
+pip install -r requirements-dev.txt    # + pytest для тестов
+cp .env.example .env      # вписать BOT_TOKEN, AI_API_KEY, свой ADMIN_IDS
+pytest                    # 46 тестов
 python -m src.bot.main    # запустить бота (long-polling)
 ```
+
+**Деплой на сервер:** пошаговая инструкция — [deploy/DEPLOY.md](deploy/DEPLOY.md).
 
 > Впиши свой Telegram ID в `ADMIN_IDS` (.env) — иначе бот закрыт и для тебя
 > (нужен будет промокод). Узнать свой id можно у @userinfobot.
@@ -154,6 +157,6 @@ python -m src.bot.main    # запустить бота (long-polling)
 - [x] **Этап 2** — доступ: пользователи + промокоды (`GOSPODRYAD`, `NEKAZUAL`), гейт, админы (29 тестов зелёные)
 - [x] **Этап 3** — флоу бота (FSM): сервер → казино → стол → сложность + схема зала + приём чисел
 - [x] **Этап 5** — аналитика: χ²-тест на смещение + Марков + ИИ-разбор (DeepSeek), кнопки 📊/🤖 (46 тестов зелёные)
-- [ ] **Этап 6** — деплой (Postgres, webhook на `proxels-web.ru`, systemd)
+- [x] **Этап 6** — деплой: systemd-сервис + [deploy/DEPLOY.md](deploy/DEPLOY.md), тонкие requirements (long-polling)
 - [ ] **Этап 7** — оплата через ЮKassa
 - [ ] **Этап 8** — нейросеть поверх данных
