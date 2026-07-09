@@ -82,6 +82,19 @@ cd /opt/radmir-bot && git pull && .venv/bin/pip install -r requirements.txt && s
 .venv/bin/pip install -r requirements-dev.txt && .venv/bin/python -m pytest -q
 ```
 
+## Если Telegram недоступен с сервера (RU-хостинг)
+Симптом в логах: `TelegramNetworkError: Request timeout error` на `getUpdates`
+(короткие запросы вроде `get_me` проходят, а long-poll виснет). Это троттлинг
+`api.telegram.org` со стороны провайдера/РКН. Решение — прокси:
+```bash
+# в .env добавить рабочий SOCKS5/HTTP прокси (вне RU-фильтрации):
+#   TELEGRAM_PROXY=socks5://user:pass@host:port
+nano /opt/radmir-bot/.env
+.venv/bin/pip install -r requirements.txt   # подтянет aiohttp-socks
+systemctl restart radmir-bot
+```
+Альтернатива — держать бота на не-RU VDS (тогда прокси не нужен).
+
 ## ВАЖНО: один поллер за раз
 Telegram отдаёт апдейты только одному процессу. Пока сервис запущен, не
 запускай бота с тем же токеном где-то ещё (локально) — будет `409 Conflict`.

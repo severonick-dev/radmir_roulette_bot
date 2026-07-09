@@ -6,3 +6,4 @@ asyncpg>=0.29        # для Postgres на проде (переключаетс
 Pillow>=10.4
 openai>=1.40
 python-dotenv>=1.0
+aiohttp-socks>=0.9      # прокси для Telegram (если хостинг режет api.telegram.org)

@@ -37,12 +37,16 @@ async def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    session = AiohttpSession()
-    if settings.force_ipv4:
-        # у многих VDS сломан IPv6 → запросы к Telegram виснут по таймауту.
-        # заставляем aiohttp резолвить только IPv4.
-        session._connector_init["family"] = socket.AF_INET
-        logging.info("Force IPv4 для запросов к Telegram включён.")
+    if settings.telegram_proxy:
+        # хостинг режет api.telegram.org → ходим через прокси (socks5/http)
+        session = AiohttpSession(proxy=settings.telegram_proxy)
+        logging.info("Telegram через прокси включён.")
+    else:
+        session = AiohttpSession()
+        if settings.force_ipv4:
+            # у многих VDS сломан IPv6 → запросы к Telegram виснут по таймауту.
+            session._connector_init["family"] = socket.AF_INET
+            logging.info("Force IPv4 для запросов к Telegram включён.")
 
     bot = Bot(
         settings.bot_token,
