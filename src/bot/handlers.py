@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+from typing import TYPE_CHECKING
+
 from aiogram import F, Router
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from src.access import service
+from src.analysis import ai_report, engine, stats
 from src.bot import texts
 from src.bot.floorplan import render_floorplan
 from src.bot.keyboards import (
@@ -22,6 +26,9 @@ from src.bot.states import Flow
 from src.db import repo
 from src.db.base import session_scope
 from src.roulette import domain
+
+if TYPE_CHECKING:
+    from src.ai.client import AIClient
 
 router = Router()
 
@@ -146,6 +153,60 @@ async def on_difficulty(cb: CallbackQuery, callback_data: Pick, state: FSMContex
     await cb.answer()
 
 
+@router.callback_query(Flow.active, Pick.filter(F.step == "stats"))
+async def on_stats(cb: CallbackQuery, state: FSMContext, window: int = 300) -> None:
+    data = await state.get_data()
+    async with session_scope() as db:
+        result = await engine.analyze_table(
+            db,
+            server=data["server"],
+            casino=data["casino"],
+            table_no=data["table"],
+            difficulty=data["difficulty"],
+            window=window,
+        )
+    await cb.message.answer(
+        texts.format_stats(
+            result, server=data["server"], casino=data["casino"], table_no=data["table"]
+        )
+    )
+    await cb.answer()
+
+
+@router.callback_query(Flow.active, Pick.filter(F.step == "ai"))
+async def on_ai(
+    cb: CallbackQuery, state: FSMContext, ai: AIClient | None = None, window: int = 300
+) -> None:
+    if ai is None:
+        await cb.answer("ИИ выключен: не задан AI_API_KEY.", show_alert=True)
+        return
+    await cb.answer()
+    data = await state.get_data()
+    async with session_scope() as db:
+        result = await engine.analyze_table(
+            db,
+            server=data["server"],
+            casino=data["casino"],
+            table_no=data["table"],
+            difficulty=data["difficulty"],
+            window=window,
+        )
+    loading = await cb.message.answer("⏳ DeepSeek анализирует последние спины…")
+    try:
+        report = await ai_report.narrate(
+            ai,
+            result,
+            server=data["server"],
+            casino=data["casino"],
+            table_no=data["table"],
+            window=window,
+        )
+        await loading.edit_text("🤖 " + report)
+    except Exception:
+        logging.exception("AI narrate failed")
+        await loading.edit_text("🤖 ИИ временно недоступен, попробуй ещё раз.")
+
+
 @router.callback_query(Pick.filter(F.step == "restart"))
 async def on_restart(
     cb: CallbackQuery, state: FSMContext, admin_ids: frozenset[int] = frozenset()
@@ -167,7 +228,7 @@ async def on_stale_button(cb: CallbackQuery) -> None:
 
 
 @router.message(Flow.active)
-async def on_active_number(message: Message, state: FSMContext) -> None:
+async def on_active_number(message: Message, state: FSMContext, window: int = 300) -> None:
     text = (message.text or "").strip()
     if not text.isdigit():
         await message.answer(texts.SEND_NUMBER_HINT)
@@ -191,8 +252,14 @@ async def on_active_number(message: Message, state: FSMContext) -> None:
         total = await repo.count_spins(
             db, server=data["server"], casino=data["casino"], table_no=data["table"]
         )
+        numbers = await repo.recent_numbers(
+            db, server=data["server"], casino=data["casino"], table_no=data["table"], limit=window
+        )
     outcome = domain.classify(number)
-    await message.answer(texts.spin_saved(number, outcome.color, total))
+    result = stats.analyze(numbers, data["difficulty"])
+    await message.answer(
+        texts.spin_saved(number, outcome.color, total) + "\n\n" + result.verdict
+    )
 
 
 @router.message(StateFilter(None))

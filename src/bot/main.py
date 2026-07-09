@@ -15,6 +15,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from src.access import service
+from src.ai.client import AIClient
 from src.bot.handlers import router
 from src.config import load_settings
 from src.db.base import init_db, session_scope
@@ -40,6 +41,10 @@ async def main() -> None:
     )
     dp = Dispatcher(storage=MemoryStorage())
     dp["admin_ids"] = settings.admin_ids
+    dp["window"] = settings.analysis_window
+    dp["ai"] = AIClient(settings) if settings.ai_api_key else None
+    if dp["ai"] is None:
+        logging.warning("AI_API_KEY не задан — ИИ-разбор будет недоступен.")
     dp.include_router(router)
 
     await _on_startup()

@@ -51,5 +51,8 @@ def difficulty_kb() -> InlineKeyboardMarkup:
 
 def active_kb() -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
+    b.button(text="📊 Статистика", callback_data=Pick(step="stats", value="-"))
+    b.button(text="🤖 Разбор ИИ", callback_data=Pick(step="ai", value="-"))
     b.button(text="🔄 Сменить стол/казино", callback_data=Pick(step="restart", value="-"))
+    b.adjust(2, 1)
     return b.as_markup()
