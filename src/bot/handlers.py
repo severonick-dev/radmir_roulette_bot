@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import html
 import logging
-import random
 from typing import TYPE_CHECKING
 
 from aiogram import F, Router
@@ -152,21 +151,6 @@ async def on_stale_button(cb: CallbackQuery) -> None:
 # ---------------------------------------------------------------------------
 # Активная сессия: цифровая клавиатура + авто-прогноз
 # ---------------------------------------------------------------------------
-async def _prediction_block(ai, result, data: dict, window: int) -> str:
-    """Блок прогноза: ИИ (если включён), иначе локальный расчёт вероятностей."""
-    if ai is not None:
-        try:
-            ai_text = await ai_report.predict_next(
-                ai, result, server=data["server"], casino=data["casino"],
-                table_no=data["table"], window=window, random_hint=random.randint(0, 36),
-            )
-            safe = html.escape(ai_text.replace("**", "").strip())
-            return f"🔮 <b>Прогноз ИИ:</b> {safe}"
-        except Exception:
-            logging.exception("AI predict failed")
-    return texts.format_prediction(result)
-
-
 async def _process_spin(message: Message, state: FSMContext, number: int, ai, window: int) -> None:
     data = await state.get_data()
     if not all(k in data for k in _SESSION_KEYS):
@@ -192,14 +176,20 @@ async def _process_spin(message: Message, state: FSMContext, number: int, ai, wi
         return
 
     color = domain.classify(number).color
-    placeholder = await message.answer(texts.SPIN_THINKING)
-    block = await _prediction_block(ai, result, data, window)
-    text = texts.spin_full(number, color, total, block)
+    block = texts.format_prediction(result)
+    # цифры показываем сразу; комментарий ИИ дописываем следом
+    msg = await message.answer(texts.spin_full(number, color, total, block))
+    if ai is None:
+        return
     try:
-        await placeholder.edit_text(text)
+        raw = await ai_report.comment(
+            ai, result, server=data["server"], casino=data["casino"],
+            table_no=data["table"], window=window,
+        )
+        safe = html.escape(raw.replace("**", "").strip())
+        await msg.edit_text(texts.spin_full(number, color, total, block, comment=safe))
     except Exception:
-        logging.exception("edit spin result failed")
-        await message.answer(text)
+        logging.exception("AI comment failed")
 
 
 async def _send_stats(message: Message, state: FSMContext, window: int) -> None:

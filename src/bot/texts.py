@@ -111,11 +111,15 @@ def format_prediction(result: AnalysisResult) -> str:
     return head + "\n" + "\n".join(rows) + f"\n<i>уверенность: {conf}</i>"
 
 
-def spin_full(number: int, color: Color, total: int, prediction_block: str) -> str:
-    # prediction_block — наш посчитанный HTML-блок (доверенный, без экранирования)
+def spin_full(
+    number: int, color: Color, total: int, prediction_block: str, comment: str | None = None
+) -> str:
+    # prediction_block — наш посчитанный HTML-блок (доверенный).
+    # comment — текст ИИ, ДОЛЖЕН быть уже экранирован вызывающей стороной.
+    extra = f"\n\n💬 <i>{comment}</i>" if comment else ""
     return (
         f"📝 <b>{number}</b> ({color_ru(color)}) записано. Всего на столе: <b>{total}</b>.\n\n"
-        f"{prediction_block}\n\n"
+        f"{prediction_block}{extra}\n\n"
         f"{DISCLAIMER}"
     )
 

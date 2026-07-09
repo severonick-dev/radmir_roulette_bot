@@ -10,7 +10,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src import venues
-from src.analysis.stats import DIFFICULTY_LABELS, AnalysisResult, category_label
+from src.analysis.stats import (
+    DIFFICULTY_LABELS,
+    AnalysisResult,
+    category_label,
+    top_predictions,
+)
 
 if TYPE_CHECKING:
     from src.ai.client import AIClient
@@ -58,29 +63,29 @@ def build_prompt(result: AnalysisResult, **ctx) -> str:
     return "\n".join(lines)
 
 
-def build_predict_prompt(
-    result: AnalysisResult, *, random_hint: int, **ctx
-) -> str:
-    """Короткий прогноз следующего исхода (после каждого спина).
+def _top_line(result: AnalysisResult) -> str:
+    diff = result.difficulty
+    k = 3 if diff.value == "numbers" else len(result.cats)
+    parts = []
+    for c, p in top_predictions(result, k):
+        label = c.category if diff.value == "numbers" else category_label(c.category, diff)
+        parts.append(f"{label} ({p * 100:.1f}%)")
+    return ", ".join(parts)
 
-    Мало данных / нет смещения → честный РАНДОМ (меняется каждый раз).
-    Достаточно данных + перекос → обоснованный точный прогноз.
-    """
+
+def build_comment_prompt(result: AnalysisResult, **ctx) -> str:
+    """Промпт для живого комментария поверх посчитанных вероятностей."""
     lines = _data_block(result, **ctx)
-    lines.append("")
-    if result.biased:
-        lines.append(
-            "Данные показывают ЗНАЧИМЫЙ перекос. Дай ОБОСНОВАННЫЙ прогноз: назови "
-            "1–3 наиболее вероятных числа (самые частые / по перекосу), уверенность "
-            "средняя-высокая, коротко поясни почему. 1–2 предложения, на русском."
-        )
-    else:
-        lines.append(
-            "Значимого перекоса НЕТ — исход по сути случаен. Дай честную догадку "
-            f"НАУГАД: назови число {random_hint} (можно + пару соседних) как случайную "
-            "ставку и прямо скажи, что это наугад, данных мало, уверенность низкая. "
-            "1–2 коротких предложения, на русском. НЕ отказывайся называть число."
-        )
+    lines += [
+        "",
+        f"Текущие топ-кандидаты по вероятности: {_top_line(result)}.",
+        "",
+        "Дай ОДНО короткое живое замечание аналитика на русском об этой картине: "
+        "что сейчас в лидерах и как расклад меняется по мере накопления данных. "
+        "ЗАПРЕЩЕНЫ слова «наугад», «случайно», «уверенности нет», «гарантия». "
+        "Опирайся только на приведённые цифры, ничего не выдумывай и не обещай выигрыш. "
+        "Ровно одно предложение, живо и по делу.",
+    ]
     return "\n".join(lines)
 
 
@@ -88,10 +93,8 @@ async def narrate(ai: "AIClient", result: AnalysisResult, **ctx) -> str:
     return await ai.complete(build_prompt(result, **ctx))
 
 
-async def predict_next(
-    ai: "AIClient", result: AnalysisResult, *, random_hint: int, **ctx
-) -> str:
-    prompt = build_predict_prompt(result, random_hint=random_hint, **ctx)
-    # при рандоме — выше температура, чтобы догадки менялись; при перекосе — ниже
-    temperature = 0.2 if result.biased else 0.9
-    return await ai.complete(prompt, temperature=temperature)
+async def comment(ai: "AIClient", result: AnalysisResult, **ctx) -> str:
+    """Короткий ИИ-комментарий поверх цифр (без «наугад/гарантий»)."""
+    return await ai.complete(
+        build_comment_prompt(result, **ctx), temperature=0.6, max_tokens=1200
+    )

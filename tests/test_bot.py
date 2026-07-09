@@ -67,3 +67,11 @@ def test_spin_full_includes_block_and_disclaimer():
     out = texts.spin_full(7, Color.RED, 10, "🔮 БЛОК-ТЕСТ")
     assert "🔮 БЛОК-ТЕСТ" in out
     assert "развлечения" in out
+    assert "💬" not in out  # без комментария — нет блока комментария
+
+
+def test_spin_full_appends_comment():
+    out = texts.spin_full(7, Color.RED, 10, "БЛОК", comment="17 держится в лидерах")
+    assert "БЛОК" in out
+    assert "17 держится в лидерах" in out
+    assert "💬" in out
