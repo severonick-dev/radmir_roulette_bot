@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import InlineKeyboardMarkup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from src import venues
 from src.bot.texts import DIFF_LABELS
+
+# тексты кнопок reply-клавиатуры активной сессии
+STATS_BTN = "📊 Статистика"
+CHANGE_BTN = "🔄 Сменить стол"
 
 
 class Pick(CallbackData, prefix="pick"):
@@ -49,10 +53,16 @@ def difficulty_kb() -> InlineKeyboardMarkup:
     return b.as_markup()
 
 
-def active_kb() -> InlineKeyboardMarkup:
-    b = InlineKeyboardBuilder()
-    b.button(text="📊 Статистика", callback_data=Pick(step="stats", value="-"))
-    b.button(text="🤖 Разбор ИИ", callback_data=Pick(step="ai", value="-"))
-    b.button(text="🔄 Сменить стол/казино", callback_data=Pick(step="restart", value="-"))
-    b.adjust(2, 1)
-    return b.as_markup()
+def numpad_kb() -> ReplyKeyboardMarkup:
+    """Reply-клавиатура: цифры 0–36 + действия. Тап шлёт текст кнопки."""
+    b = ReplyKeyboardBuilder()
+    b.button(text="0")
+    for n in range(1, 37):
+        b.button(text=str(n))
+    b.button(text=STATS_BTN)
+    b.button(text=CHANGE_BTN)
+    b.adjust(1, 6, 6, 6, 6, 6, 6, 2)  # [0] / 1-6 / … / 31-36 / [действия]
+    return b.as_markup(
+        resize_keyboard=True,
+        input_field_placeholder="Тапни выпавшее число 0–36",
+    )

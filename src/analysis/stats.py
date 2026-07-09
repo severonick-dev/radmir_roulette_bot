@@ -182,6 +182,25 @@ def _verdict(difficulty, n, small, biased, p, top) -> str:
     )
 
 
+def predict_local(result: "AnalysisResult") -> str:
+    """Короткий прогноз без ИИ (фолбэк, если ИИ выключен/недоступен)."""
+    diff = result.difficulty
+    if result.n == 0:
+        return "данных нет — первый спин это чистая случайность."
+    if result.biased and result.top is not None:
+        return (
+            f"вероятнее «{category_label(result.top.category, diff)}» — "
+            f"в данных есть перекос (p={result.p_value:.3f})."
+        )
+    if result.markov_pick is not None:
+        cat, prob, total = result.markov_pick
+        return (
+            f"слабый сигнал: после «{category_label(result.markov_last, diff)}» чаще "
+            f"«{category_label(cat, diff)}» ({prob * 100:.0f}%, {total} набл.) — не гарантия."
+        )
+    return "значимого перекоса нет — следующий исход по сути случайный."
+
+
 def analyze(numbers: list[int], difficulty: Difficulty | str) -> AnalysisResult:
     """Полный разбор последовательности чисел под выбранный режим."""
     diff = difficulty if isinstance(difficulty, Difficulty) else Difficulty(difficulty)

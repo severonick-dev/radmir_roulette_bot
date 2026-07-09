@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from datetime import datetime
 
 from src import venues
@@ -32,11 +33,16 @@ CHOOSE_CASINO = "🎰 Выбери <b>казино</b>:"
 CHOOSE_TABLE = "На схеме — расположение столов. Выбери <b>стол</b>:"
 CHOOSE_DIFFICULTY = "🎯 Выбери <b>режим</b> (сложность):"
 
-SEND_NUMBER_HINT = (
-    "Пришли <b>число 0–36</b>, которое выпало на рулетке. "
-    "Сменить стол — кнопка ниже или /reset."
-)
+SEND_NUMBER_HINT = "Жми <b>кнопку с выпавшим числом (0–36)</b> на клавиатуре снизу."
 USE_START = "Нажми /start, чтобы начать."
+SESSION_LOST = "Сессия сброшена (бот перезапускался). Нажми /start, чтобы начать заново."
+SPIN_THINKING = "📝 Записал. ⏳ Прогноз ИИ…"
+
+# Короткий дисклеймер под результатами/прогнозами.
+DISCLAIMER = (
+    "⚠️ <i>Это лишь аналитика и прогноз ИИ, не гарантия. За ваши средства "
+    "ответственности не несём — играйте разумно и ради развлечения.</i>"
+)
 
 _COLOR_RU = {
     Color.RED: "красное 🟥",
@@ -76,10 +82,14 @@ def session_ready(server: str, casino: str, table_no: int, difficulty: str, tota
     )
 
 
-def spin_saved(number: int, color: Color, total: int) -> str:
+def spin_full(number: int, color: Color, total: int, prediction: str) -> str:
+    # prediction — текст от ИИ: экранируем спецсимволы HTML и чистим markdown **,
+    # иначе символы < > & сломают отправку в parse_mode=HTML
+    safe = html.escape(prediction.replace("**", "")).strip()
     return (
-        f"📝 Записал: <b>{number}</b> ({color_ru(color)}). "
-        f"Всего на столе: <b>{total}</b>.\nПрисылай следующее число."
+        f"📝 <b>{number}</b> ({color_ru(color)}) записано. Всего на столе: <b>{total}</b>.\n\n"
+        f"🔮 <b>Что дальше:</b> {safe}\n\n"
+        f"{DISCLAIMER}"
     )
 
 
@@ -104,4 +114,7 @@ def format_stats(result: AnalysisResult, *, server: str, casino: str, table_no: 
         f"\nχ²={result.chi2:.2f}, p={result.p_value:.3f} → "
         + ("⚠️ есть смещение" if result.biased else "смещения нет")
     )
-    return head + "\n\n" + "\n".join(lines) + "\n" + tail + "\n\n" + result.verdict
+    return (
+        head + "\n\n" + "\n".join(lines) + "\n" + tail
+        + "\n\n" + result.verdict + "\n\n" + DISCLAIMER
+    )

@@ -46,3 +46,16 @@ def test_color_ru_covers_all():
     assert "красное" in texts.color_ru(Color.RED)
     assert "чёрное" in texts.color_ru(Color.BLACK)
     assert "зеро" in texts.color_ru(Color.GREEN)
+
+
+def test_numpad_has_39_buttons():
+    kb = keyboards.numpad_kb()
+    assert sum(len(r) for r in kb.keyboard) == 39  # 0..36 + 2 действия
+
+
+def test_spin_full_escapes_ai_text():
+    # опасный текст от ИИ (< и **) не должен попасть сырым в HTML
+    out = texts.spin_full(7, Color.RED, 10, "ставь <3% и **точно**")
+    assert "<3%" not in out
+    assert "&lt;3%" in out
+    assert "**" not in out
