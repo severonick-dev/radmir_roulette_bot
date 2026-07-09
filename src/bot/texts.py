@@ -7,7 +7,12 @@ from datetime import datetime
 
 from src import venues
 from src.access.service import RedeemStatus
-from src.analysis.stats import DIFFICULTY_LABELS, AnalysisResult, category_label
+from src.analysis.stats import (
+    DIFFICULTY_LABELS,
+    AnalysisResult,
+    category_label,
+    top_predictions,
+)
 from src.roulette.domain import Color
 
 # алиас для клавиатур (метки режимов живут в analysis.stats)
@@ -77,18 +82,40 @@ def session_ready(server: str, casino: str, table_no: int, difficulty: str, tota
         f"🃏 Стол: <b>№{table_no}</b>\n"
         f"🎯 Режим: <b>{DIFF_LABELS.get(difficulty, difficulty)}</b>\n"
         f"📊 Уже накоплено спинов на столе: <b>{total}</b>\n\n"
-        "Присылай <b>выпавшие числа (0–36)</b> — я буду их записывать. "
-        "Аналитику подключим следующим шагом."
+        "Тапай <b>выпавшие числа</b> на клавиатуре снизу — после каждого покажу "
+        "вероятности следующего исхода."
     )
 
 
-def spin_full(number: int, color: Color, total: int, prediction: str) -> str:
-    # prediction — текст от ИИ: экранируем спецсимволы HTML и чистим markdown **,
-    # иначе символы < > & сломают отправку в parse_mode=HTML
-    safe = html.escape(prediction.replace("**", "")).strip()
+def format_prediction(result: AnalysisResult) -> str:
+    """Блок прогноза: топ-кандидаты с вероятностями (посчитано из данных)."""
+    diff = result.difficulty
+    if diff.value == "numbers":
+        head = "🔮 <b>Вероятнее следующими:</b>"
+        rows = [
+            f"{i}) <b>{c.category}</b> — {p * 100:.1f}%"
+            for i, (c, p) in enumerate(top_predictions(result, 3), 1)
+        ]
+    else:
+        head = "🔮 <b>Вероятности:</b>"
+        rows = [
+            f"• <b>{category_label(c.category, diff)}</b> — {p * 100:.1f}%"
+            for c, p in top_predictions(result, len(result.cats))
+        ]
+    if result.small_sample:
+        conf = "низкая (мало данных)"
+    elif result.biased:
+        conf = "выше средней ⚠️ есть смещение"
+    else:
+        conf = "средняя"
+    return head + "\n" + "\n".join(rows) + f"\n<i>уверенность: {conf}</i>"
+
+
+def spin_full(number: int, color: Color, total: int, prediction_block: str) -> str:
+    # prediction_block — наш посчитанный HTML-блок (доверенный, без экранирования)
     return (
         f"📝 <b>{number}</b> ({color_ru(color)}) записано. Всего на столе: <b>{total}</b>.\n\n"
-        f"🔮 <b>Что дальше:</b> {safe}\n\n"
+        f"{prediction_block}\n\n"
         f"{DISCLAIMER}"
     )
 

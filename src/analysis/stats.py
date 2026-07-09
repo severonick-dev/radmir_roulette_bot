@@ -212,6 +212,24 @@ def predict_local(result: "AnalysisResult") -> str:
     )
 
 
+def top_predictions(
+    result: "AnalysisResult", k: int, alpha: float = 1.0
+) -> list[tuple["CatStat", float]]:
+    """Топ-k кандидатов со сглаженной вероятностью (Лаплас).
+
+    P(cat) = (count + α) / (N + α·K). При N=0 всё равно 1/K (равновероятно),
+    по мере накопления сдвигается к наблюдаемому — «точность растёт».
+    Возвращает [(CatStat, prob)], отсортировано по вероятности убыв.
+    """
+    cats = result.cats
+    if not cats:
+        return []
+    denom = result.n + alpha * len(cats)
+    scored = [(c, (c.count + alpha) / denom) for c in cats]
+    scored.sort(key=lambda x: (x[1], x[0].count), reverse=True)
+    return scored[:k]
+
+
 def analyze(numbers: list[int], difficulty: Difficulty | str) -> AnalysisResult:
     """Полный разбор последовательности чисел под выбранный режим."""
     diff = difficulty if isinstance(difficulty, Difficulty) else Difficulty(difficulty)

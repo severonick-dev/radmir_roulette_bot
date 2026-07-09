@@ -53,9 +53,17 @@ def test_numpad_has_39_buttons():
     assert sum(len(r) for r in kb.keyboard) == 39  # 0..36 + 2 действия
 
 
-def test_spin_full_escapes_ai_text():
-    # опасный текст от ИИ (< и **) не должен попасть сырым в HTML
-    out = texts.spin_full(7, Color.RED, 10, "ставь <3% и **точно**")
-    assert "<3%" not in out
-    assert "&lt;3%" in out
-    assert "**" not in out
+def test_prediction_numbers_top3():
+    from src.analysis import stats as S
+    from src.roulette.domain import Difficulty
+
+    r = S.analyze([17, 17, 8, 33, 0, 17], Difficulty.NUMBERS)
+    block = texts.format_prediction(r)
+    assert "%" in block
+    assert "17" in block  # самое частое — в топе
+
+
+def test_spin_full_includes_block_and_disclaimer():
+    out = texts.spin_full(7, Color.RED, 10, "🔮 БЛОК-ТЕСТ")
+    assert "🔮 БЛОК-ТЕСТ" in out
+    assert "развлечения" in out

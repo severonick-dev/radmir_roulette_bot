@@ -73,6 +73,20 @@ def test_predict_local_always_names_candidate():
     assert "кандидат" in stats.predict_local(stats.analyze([], Difficulty.NUMBERS))
 
 
+def test_top_predictions_uniform_at_zero():
+    r = stats.analyze([], Difficulty.NUMBERS)
+    top = stats.top_predictions(r, 3)
+    assert len(top) == 3
+    assert all(abs(p - 1 / 37) < 1e-9 for _, p in top)  # пусто → равновероятно
+
+
+def test_top_predictions_favours_frequent():
+    r = stats.analyze([17] * 10 + [8] * 3, Difficulty.NUMBERS)
+    top = stats.top_predictions(r, 3)
+    assert top[0][0].category == "17"  # самый частый — первый
+    assert top[0][1] > top[1][1]
+
+
 def test_category_labels():
     assert stats.category_label("red", Difficulty.EASY) == "красное"
     assert "1–12" in stats.category_label("d1", Difficulty.MEDIUM)
