@@ -58,18 +58,29 @@ def build_prompt(result: AnalysisResult, **ctx) -> str:
     return "\n".join(lines)
 
 
-def build_predict_prompt(result: AnalysisResult, **ctx) -> str:
-    """Короткий прогноз следующего исхода (после каждого спина)."""
+def build_predict_prompt(
+    result: AnalysisResult, *, random_hint: int, **ctx
+) -> str:
+    """Короткий прогноз следующего исхода (после каждого спина).
+
+    Мало данных / нет смещения → честный РАНДОМ (меняется каждый раз).
+    Достаточно данных + перекос → обоснованный точный прогноз.
+    """
     lines = _data_block(result, **ctx)
-    lines += [
-        "",
-        "Пользователю НУЖЕН конкретный кандидат каждый раз (это для развлечения). "
-        "ОБЯЗАТЕЛЬНО назови конкретный прогноз следующего исхода: для режима чисел — "
-        "одно число 0–36 (можно 2–3 кандидата), для цвета/дюжины — конкретный вариант. "
-        "Даже при малых данных или отсутствии смещения ВСЁ РАВНО назови кандидата — "
-        "не отказывайся называть число. При этом честно укажи уверенность: при малых "
-        "данных она низкая и исход близок к случайному. Максимум 2 коротких предложения.",
-    ]
+    lines.append("")
+    if result.biased:
+        lines.append(
+            "Данные показывают ЗНАЧИМЫЙ перекос. Дай ОБОСНОВАННЫЙ прогноз: назови "
+            "1–3 наиболее вероятных числа (самые частые / по перекосу), уверенность "
+            "средняя-высокая, коротко поясни почему. 1–2 предложения, на русском."
+        )
+    else:
+        lines.append(
+            "Значимого перекоса НЕТ — исход по сути случаен. Дай честную догадку "
+            f"НАУГАД: назови число {random_hint} (можно + пару соседних) как случайную "
+            "ставку и прямо скажи, что это наугад, данных мало, уверенность низкая. "
+            "1–2 коротких предложения, на русском. НЕ отказывайся называть число."
+        )
     return "\n".join(lines)
 
 
@@ -77,5 +88,10 @@ async def narrate(ai: "AIClient", result: AnalysisResult, **ctx) -> str:
     return await ai.complete(build_prompt(result, **ctx))
 
 
-async def predict_next(ai: "AIClient", result: AnalysisResult, **ctx) -> str:
-    return await ai.complete(build_predict_prompt(result, **ctx))
+async def predict_next(
+    ai: "AIClient", result: AnalysisResult, *, random_hint: int, **ctx
+) -> str:
+    prompt = build_predict_prompt(result, random_hint=random_hint, **ctx)
+    # при рандоме — выше температура, чтобы догадки менялись; при перекосе — ниже
+    temperature = 0.2 if result.biased else 0.9
+    return await ai.complete(prompt, temperature=temperature)

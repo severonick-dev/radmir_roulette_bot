@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import html
 import logging
+import random
+from typing import TYPE_CHECKING
 
 from aiogram import F, Router
 from aiogram.filters import Command, StateFilter
@@ -15,7 +18,7 @@ from aiogram.types import (
 )
 
 from src.access import service
-from src.analysis import engine, stats
+from src.analysis import ai_report, engine, stats
 from src.bot import keyboards, texts
 from src.bot.floorplan import render_floorplan
 from src.bot.keyboards import Pick
@@ -23,6 +26,9 @@ from src.bot.states import Flow
 from src.db import repo
 from src.db.base import session_scope
 from src.roulette import domain
+
+if TYPE_CHECKING:
+    from src.ai.client import AIClient
 
 router = Router()
 
@@ -146,7 +152,22 @@ async def on_stale_button(cb: CallbackQuery) -> None:
 # ---------------------------------------------------------------------------
 # Активная сессия: цифровая клавиатура + авто-прогноз
 # ---------------------------------------------------------------------------
-async def _process_spin(message: Message, state: FSMContext, number: int, window: int) -> None:
+async def _prediction_block(ai, result, data: dict, window: int) -> str:
+    """Блок прогноза: ИИ (если включён), иначе локальный расчёт вероятностей."""
+    if ai is not None:
+        try:
+            ai_text = await ai_report.predict_next(
+                ai, result, server=data["server"], casino=data["casino"],
+                table_no=data["table"], window=window, random_hint=random.randint(0, 36),
+            )
+            safe = html.escape(ai_text.replace("**", "").strip())
+            return f"🔮 <b>Прогноз ИИ:</b> {safe}"
+        except Exception:
+            logging.exception("AI predict failed")
+    return texts.format_prediction(result)
+
+
+async def _process_spin(message: Message, state: FSMContext, number: int, ai, window: int) -> None:
     data = await state.get_data()
     if not all(k in data for k in _SESSION_KEYS):
         await state.clear()
@@ -171,8 +192,14 @@ async def _process_spin(message: Message, state: FSMContext, number: int, window
         return
 
     color = domain.classify(number).color
-    block = texts.format_prediction(result)
-    await message.answer(texts.spin_full(number, color, total, block))
+    placeholder = await message.answer(texts.SPIN_THINKING)
+    block = await _prediction_block(ai, result, data, window)
+    text = texts.spin_full(number, color, total, block)
+    try:
+        await placeholder.edit_text(text)
+    except Exception:
+        logging.exception("edit spin result failed")
+        await message.answer(text)
 
 
 async def _send_stats(message: Message, state: FSMContext, window: int) -> None:
@@ -197,6 +224,7 @@ async def _send_stats(message: Message, state: FSMContext, window: int) -> None:
 async def on_active(
     message: Message,
     state: FSMContext,
+    ai: "AIClient | None" = None,
     window: int = 300,
     admin_ids: frozenset[int] = frozenset(),
 ) -> None:
@@ -212,7 +240,7 @@ async def on_active(
         )
         return
     if text.isdigit() and 0 <= int(text) <= 36:
-        await _process_spin(message, state, int(text), window)
+        await _process_spin(message, state, int(text), ai, window)
         return
     await message.answer(texts.SEND_NUMBER_HINT)
 
